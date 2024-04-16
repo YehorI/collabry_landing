@@ -1,23 +1,38 @@
-from pydantic import EmailStr
+import aiosqlite
+import re
 
-from facet import ServiceMixin
+from collabry_landing.enums import EmailStatus
 
 
-class SaveEmailMixin:
-    async def save_email(
-        self,
-        session: AsyncSession,
-        email: str
-    ):
+async def db_save_email(
+    email: str
+):
+    async with aiosqlite.connect('database.db') as db:
         if not re.match(r"[^@]+@[^@]+\.[^@]+", email):
             return EmailStatus.WRONG
 
-        result = await session.execute(select(Email).filter(Email.email == email))
-        existing_email = result.scalars().first()
+        result = await db.execute(
+            "SELECT email FROM emails WHERE email = ?", (email,)
+        )
+        existing_email = await result.fetchone()
         if existing_email:
             return EmailStatus.EXISTS
 
-        new_email = Email(email=email)
-        session.add(new_email)
-        await session.commit()
+        await db.execute(
+            "INSERT INTO emails (email) VALUES (?)", (email,)
+        )
+
+        await db.commit()
         return EmailStatus.SAVED
+
+
+async def db_create_email_table():
+    async with aiosqlite.connect('database.db') as db:
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS emails (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email TEXT NOT NULL
+            );
+        """)
+
+        await db.commit()

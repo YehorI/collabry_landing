@@ -1,35 +1,25 @@
 import fastapi
 
 from pydantic import BaseModel
-from email_statuses import EmailStatus
-from enums import Enum, auto
+
+from collabry_landing.database import db_save_email
+from collabry_landing.enums import EmailStatus
 
 
-class EmailStatus(Enum):
-    EXISTS = auto()
-    SAVED = auto()
-    WRONG = auto()
+
 
 
 class EmailRequest(BaseModel):
     email: str
 
 
-async def post_email(request: fastapi.Request):
-    email_data = await request.json()
-    email_request = EmailRequest(**email_data)
-    email = email_request.email
+async def post_email(email_data: EmailRequest):
+    email = email_data.email
 
-    async with database_service.transaction() as session:
-        try:
-            email_status: EmailStatus = await database_service.save_email(
-                email=email
-            )
-        except Exception as e:
-            raise fastapi.HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to process the request."
-            )
+
+    email_status: EmailStatus = await db_save_email(
+        email=email
+    )
 
     if email_status == EmailStatus.EXISTS:
         return {"message": "Email already exists.", "status": "exists"}
