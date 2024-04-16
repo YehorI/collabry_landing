@@ -20,8 +20,6 @@ async def post_email(request: fastapi.Request):
     email_request = EmailRequest(**email_data)
     email = email_request.email
 
-    database_service = request.app.service.database
-
     async with database_service.transaction() as session:
         try:
             email_status: EmailStatus = await database_service.save_email(
